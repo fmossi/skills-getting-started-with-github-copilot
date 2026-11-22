@@ -3,28 +3,46 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  const activityCount = document.getElementById("activity-count");
+  const openSpots = document.getElementById("open-spots");
+  const activityIcons = ["♟", "⌘", "⚡", "✦", "◆", "♫"];
 
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
       const response = await fetch("/activities");
+      if (!response.ok) throw new Error("Unable to load activities");
       const activities = await response.json();
 
-      // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">Choose an activity</option>';
+
+      const activityEntries = Object.entries(activities);
+      activityCount.textContent = activityEntries.length;
+      openSpots.textContent = activityEntries.reduce(
+        (total, [, details]) =>
+          total + Math.max(details.max_participants - details.participants.length, 0),
+        0
+      );
 
       // Populate activities list
-      Object.entries(activities).forEach(([name, details]) => {
+      activityEntries.forEach(([name, details], index) => {
         const activityCard = document.createElement("div");
         activityCard.className = "activity-card";
 
-        const spotsLeft = details.max_participants - details.participants.length;
+        const spotsLeft = Math.max(
+          details.max_participants - details.participants.length,
+          0
+        );
 
         activityCard.innerHTML = `
+          <span class="activity-icon" aria-hidden="true">${activityIcons[index % activityIcons.length]}</span>
           <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <p class="description">${details.description}</p>
+          <div class="activity-meta">
+            <span>${details.schedule}</span>
+            <span class="availability ${spotsLeft <= 3 ? "low" : ""}">${spotsLeft} spots</span>
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
@@ -36,7 +54,8 @@ document.addEventListener("DOMContentLoaded", () => {
         activitySelect.appendChild(option);
       });
     } catch (error) {
-      activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
+      activitiesList.innerHTML =
+        '<p class="empty-state">We could not load the activities. Please try again later.</p>';
       console.error("Error fetching activities:", error);
     }
   }
@@ -62,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        await fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
